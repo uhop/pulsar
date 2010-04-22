@@ -73,6 +73,12 @@
 		if(stack.length){
 			throw new Error('STE: some "if" or "loop" blocks were not closed properly.');
 		}
+		if(tmpl.length > previousOffset){
+			tokens.push({
+				type: needSubstitions ? "replace" : "copy",
+				text: tmpl.substring(previousOffset)
+			});
+		}
 		object = d.delegate(filters || ste.standardFilters);
 		object.tokens  = tokens;
 		object.pattern = pattern;
@@ -176,11 +182,11 @@
 				if(!engine[filter]){
 					throw new Error('STE: unknown filter - ' + filter);
 				}
-				value = engine[parts[0]](value, parts, loopStack, dict, resolve);
+				value = engine[parts[0]](value, parts, resolve, loopStack, dict);
 			}
 			// run the default filter, if available
 			if(match && !engine._nodef && engine.def){
-				value = engine.def(value, parts, loopStack, dict, resolve);
+				value = engine.def(value, parts, resolve, loopStack, dict);
 			}
 			engine._nodef = old;	// restore the old value of the flag
 			return match ? value + "" : value;	// Object
@@ -220,7 +226,7 @@
 		},
 
 		// value manipulations
-		call: function(value, parts, loopStack, dict, resolve){
+		call: function(value, parts, resolve){
 			return parts.length > 1 ? value[resolveOperand(parts[1], resolve)]() : value();
 		},
 		sub: function(value, parts){
@@ -243,7 +249,7 @@
 		first: function(value){
 			return !value;
 		},
-		last: function(value, parts, loopStack){
+		last: function(value, parts, resolve, loopStack){
 			return value + 1 == loopStack[loopStack.length - 1].index;
 		},
 		even: function(value){
@@ -254,28 +260,39 @@
 		},
 
 		// logical functions
-		is: function(value, parts, loopStack, dict, resolve){
+		/*
+		is: function(value, parts, resolve){
 			return parts.length > 1 && value === resolveOperand(parts[1], resolve);
 		},
-		eq: function(value, parts, loopStack, dict, resolve){
+		eq: function(value, parts, resolve){
 			return parts.length > 1 && value == resolveOperand(parts[1], resolve);
 		},
-		lt: function(value, parts, loopStack, dict, resolve){
+		lt: function(value, parts, resolve){
 			return parts.length > 1 && value < resolveOperand(parts[1], resolve);
 		},
-		le: function(value, parts, loopStack, dict, resolve){
+		le: function(value, parts, resolve){
 			return parts.length > 1 && value <= resolveOperand(parts[1], resolve);
 		},
-		gt: function(value, parts, loopStack, dict, resolve){
+		gt: function(value, parts, resolve){
 			return parts.length > 1 && value > resolveOperand(parts[1], resolve);
 		},
-		ge: function(value, parts, loopStack, dict, resolve){
+		ge: function(value, parts, resolve){
 			return parts.length > 1 && value >= resolveOperand(parts[1], resolve);
 		},
+		*/
 		not: function(value){
 			return !value;
 		}
 	};
+	
+	var logicNames = ["eq", "lt", "le", "gt", "ge", "is" ],
+		logicOps   = ["==", "<",  "<=", ">",  ">=", "==="],
+		logicDict  = {},
+		logicTmpl  = ste.compileTemplate("(function(value, parts, resolve){ return parts.length > 1 && value #{op} resolveOperand(parts[1], resolve); })", /#\{([^\}]+)\}/g);
+	for(var i = 0, l = logicNames.length; i < l; ++i){
+		logicDict.op = logicOps[i];
+		ste.standardFilters[logicNames[i]] = eval(logicTmpl.exec(logicDict));
+	}
 	
 	ste.runTemplate = function(tmpl, dict, pattern, filters){
 		return ste.compileTemplate(tmpl, pattern, filters).exec(dict);	// String
