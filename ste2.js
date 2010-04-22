@@ -251,6 +251,9 @@
 		str: function(value){
 			return value + "";
 		},
+		void: function(){
+			return "";
+		},
 
 		// loop functions
 		first: function(value){
