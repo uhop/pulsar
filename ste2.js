@@ -301,7 +301,6 @@
 		}
 	};
 	
-	
 	var logicNames = ["eq", "lt", "le", "gt", "ge", "is" ],
 		logicOps   = ["==", "<",  "<=", ">",  ">=", "==="],
 		logicDict  = {},
