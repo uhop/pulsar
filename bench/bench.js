@@ -1,4 +1,8 @@
-(function(){
+function bench(delay, limit){
+	// delay - pause between tests in ms
+	// limit - the lower limit of a test in ms
+
+
 	// functional helpers
 	
 	function wrap(fn /*...*/){
@@ -67,8 +71,11 @@
 	// DOM helpers
 	
 	var place = function(){
-		var div = document.createElement("div");
+		var div = null;
 		return function(html, node){
+			if(!div){
+				div = document.createElement("div");
+			}
 			div.innerHTML = html;
 			node.appendChild(div.firstChild);
 		};
@@ -87,6 +94,20 @@
 		firstDecile:    "10%",
 		lastDecile:     "90%",
 		average:        "avg"
+	};
+
+	var getPercentile = function(sortedData, value){
+		var lowerIndex = 0, upperIndex = sortedData.length - 1;
+		while(lowerIndex < upperIndex){
+			var middleIndex = Math.floor((lowerIndex + upperIndex) / 2);
+			if(sortedData[middleIndex] < value){
+				lowerIndex = middleIndex + 1;
+			}else{
+				upperIndex = middleIndex;
+			}
+		}
+		return lowerIndex < sortedData.length && value < sortedData[lowerIndex] ?
+			lowerIndex : (lowerIndex + 1);
 	};
 
 	var getWeightedValue = function(sortedData, weight){
@@ -108,15 +129,16 @@
 	var getStats = function(rawData, repetitions){
 		var sortedData = rawData.slice(0).sort(function(a, b){ return a - b; }),
 			result = {
+				sortedData:    sortedData,
 				// the five-number summary
-				minimum:        sortedData[0],
-				maximum:        sortedData[sortedData.length - 1],
-				median:         getWeightedValue(sortedData, 0.5),
-				lowerQuartile:  getWeightedValue(sortedData, 0.25),
-				upperQuartile:  getWeightedValue(sortedData, 0.75),
+				minimum:       sortedData[0],
+				maximum:       sortedData[sortedData.length - 1],
+				median:        getWeightedValue(sortedData, 0.5),
+				lowerQuartile: getWeightedValue(sortedData, 0.25),
+				upperQuartile: getWeightedValue(sortedData, 0.75),
 				// extended to the Bowley's seven-figure summary
-				firstDecile:    getWeightedValue(sortedData, 0.1),
-				lastDecile:     getWeightedValue(sortedData, 0.9)
+				firstDecile:   getWeightedValue(sortedData, 0.1),
+				lastDecile:    getWeightedValue(sortedData, 0.9)
 			};
 		// add the average
 		for(var i = 0, sum = 0; i < sortedData.length; sum += sortedData[i++]);
@@ -131,10 +153,6 @@
 	};
 	
 	// test harness
-
-	var DELAY = 20,     // pause in ms between tests
-		LIMIT = 50,     // the lower limit of a test
-		COUNT = 50;     // how many times to repeat the test
 
 	// the basic unit to run a test with timing
 	var runTest = function(f, n){
@@ -157,7 +175,7 @@
 	var runUnitTest = function(a, f, n, k, m, next){
 		a[k++] = runTest(f, n) - runTest(nothing, n);
 		if(k < m){
-			setTimeout(wrap(runUnitTest, a, f, n, k, m, next), DELAY);
+			setTimeout(wrap(runUnitTest, a, f, n, k, m, next), delay);
 		}else{
 			next(a);
 		}
@@ -172,21 +190,28 @@
 
 	var testGroups = [];
 
-	var registerGroup = function(title, tests, bi, repetitions, node){
-		var threshold = findThreshold(tests[bi].fun, LIMIT),
-			x = {
+	var registerGroup = function(title, tests, repetitions, node){
+		// find a threshold
+		var threshold = Infinity;
+		forEach(tests, function(test){
+			threshold = Math.min(threshold, findThreshold(test.fun, limit));
+		});
+		// create a benchmark runner object
+		var x = {
 				tests: tests,
 				stats: [],
 				process: function(a){
-					// save stats, if any
 					if(a){
+						// save stats, if any
 						this.stats.push(getStats(a, threshold));
 						//console.log("test #" + this.stats.length + " is completed: " + this.tests[this.stats.length - 1].name);
 					}
 					if(this.stats.length < this.tests.length){
+						// run the next test
 						runTests(this.tests[this.stats.length].fun, threshold, repetitions, bind("process", this));
 						return;
 					}
+					// prepare to show results
 					var diff = Math.max.apply(Math, map(this.stats, function(s){ return s.upperQuartile - s.lowerQuartile; })),
 						prec = 1 - Math.floor(Math.log(diff) / Math.LN10), fastest = 0, stablest = 0;
 					forEach(this.stats, function(s, i){
@@ -199,10 +224,10 @@
 							}
 						}
 					}, this);
-					// add the table
+					// show the results
 					var tab = ["<table class='stats'><thead><tr><th>Test</th>"];
-					tab.push(map(this.tests, function(f, i){
-						return "<th class='" + (i == fastest ? "fastest" : "") + " " + (i == stablest ? "stablest" : "") + "'>" + f.name + "</th>";
+					tab.push(map(this.tests, function(test, i){
+						return "<th class='" + (i == fastest ? "fastest" : "") + " " + (i == stablest ? "stablest" : "") + "'>" + test.name + "</th>";
 					}).join(""));
 					tab.push("</tr></thead><tbody>");
 					forEach(statNames, function(name){
@@ -233,4 +258,9 @@
 			alert("Done!");
 		}
 	}
-})();
+	
+	return {
+		registerGroup: registerGroup,
+		run: run
+	};
+}
