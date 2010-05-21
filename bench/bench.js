@@ -1,9 +1,11 @@
 function bench(delay, limit){
 	// delay - pause between tests in ms
 	// limit - the lower limit of a test in ms
-
-
+	
+	
 	// functional helpers
+
+	var nothing = new Function();
 	
 	function wrap(fn /*...*/){
 		var args = Array.prototype.slice.call(arguments, 1);
@@ -20,8 +22,13 @@ function bench(delay, limit){
 	}
 
 	function bind(fn, obj){
+		if(Object.prototype.toString.call(fn) == "[object Function]"){
+			return function(){
+				return fn.apply(obj, arguments);
+			};
+		}
 		return function(){
-			return (Object.prototype.toString.call(fn) == "[object Function]" ? fn : obj[fn]).apply(obj, arguments);
+			return obj[fn].apply(obj, arguments);
 		}
 	}
 
@@ -96,7 +103,7 @@ function bench(delay, limit){
 		average:        "avg"
 	};
 
-	var getPercentile = function(sortedData, value){
+	function getPercentile(sortedData, value){
 		var lowerIndex = 0, upperIndex = sortedData.length - 1;
 		while(lowerIndex < upperIndex){
 			var middleIndex = Math.floor((lowerIndex + upperIndex) / 2);
@@ -110,7 +117,7 @@ function bench(delay, limit){
 			lowerIndex : (lowerIndex + 1);
 	};
 
-	var getWeightedValue = function(sortedData, weight){
+	function getWeightedValue(sortedData, weight){
 		var pos = weight * (sortedData.length - 1),
 			upperIndex = Math.ceil(pos),
 			lowerIndex = upperIndex - 1;
@@ -126,9 +133,11 @@ function bench(delay, limit){
 		return sortedData[lowerIndex] * (upperIndex - pos) + sortedData[upperIndex] * (pos - lowerIndex);
 	};
 
-	var getStats = function(rawData, repetitions){
+	function getStats(rawData, repetitions){
 		var sortedData = rawData.slice(0).sort(function(a, b){ return a - b; }),
 			result = {
+				rawData:       rawData,
+				repetitions:   repetitions,
 				sortedData:    sortedData,
 				// the five-number summary
 				minimum:       sortedData[0],
@@ -155,7 +164,7 @@ function bench(delay, limit){
 	// test harness
 
 	// the basic unit to run a test with timing
-	var runTest = function(f, n){
+	function runTest(f, n){
 		var start = new Date();
 		for(var i = 0; i < n; ++i){
 			f();
@@ -165,14 +174,14 @@ function bench(delay, limit){
 	};
 
 	// find the threshold number of tests just exceeding the limit
-	var findThreshold = function(f, limit){
+	function findThreshold(f, limit){
 		// very simplistic search probing only powers of two
 		var n = 1;
 		while(runTest(f, n) + runTest(nothing, n) < limit) n <<= 1;
 		return n;
 	};
 
-	var runUnitTest = function(a, f, n, k, m, next){
+	function runUnitTest(a, f, n, k, m, next){
 		a[k++] = runTest(f, n) - runTest(nothing, n);
 		if(k < m){
 			setTimeout(wrap(runUnitTest, a, f, n, k, m, next), delay);
@@ -181,86 +190,137 @@ function bench(delay, limit){
 		}
 	};
 
-	var runTests = function(f, n, m, next){
+	function runUnits(test, n, m, next){
 		var a = new Array(m);
-		runUnitTest(a, f, n, 0, m, next);
+		runUnitTest(a, test, n, 0, m, next);
 	};
 
 	// run a group of tests, prepare statistics and show results
 
-	var testGroups = [];
-
-	var registerGroup = function(title, tests, repetitions, node){
+	function clear(){
+		this.unitGroups = [];
+		this.unitDict   = {};
+		this.statDict   = {};
+		this.groupIndex = -1;
+	}
+	
+	function register(groupName, units){
+		if(arguments.length < 2){
+			units = groupName;
+			groupName = "";
+		}
+		groupName = groupName || "Default group";
+		if(Object.prototype.toString.call(units) != "[object Array]"){
+			units = [units];
+		}
+		if(this.unitDict.hasOwnProperty(groupName)){
+			this.unitDict[groupName] = this.unitDict[groupName].concat(units);
+		}else{
+			this.unitGroups.push(groupName);
+			this.unitDict[groupName] = units.slice(0);
+		}
+	};
+		
+	function runGroup(groupName, repetitions, node){
+		var units = this.unitDict[groupName], stats = [];
+		
 		// find a threshold
 		var threshold = Infinity;
-		forEach(tests, function(test){
-			threshold = Math.min(threshold, findThreshold(test.fun, limit));
+		forEach(units, function(unit){
+			threshold = Math.min(threshold, findThreshold(unit.test, limit));
 		});
-		// create a benchmark runner object
-		var x = {
-				tests: tests,
-				stats: [],
-				process: function(a){
-					if(a){
-						// save stats, if any
-						this.stats.push(getStats(a, threshold));
-						//console.log("test #" + this.stats.length + " is completed: " + this.tests[this.stats.length - 1].name);
-					}
-					if(this.stats.length < this.tests.length){
-						// run the next test
-						runTests(this.tests[this.stats.length].fun, threshold, repetitions, bind("process", this));
-						return;
-					}
-					// prepare to show results
-					var diff = Math.max.apply(Math, map(this.stats, function(s){ return s.upperQuartile - s.lowerQuartile; })),
-						prec = 1 - Math.floor(Math.log(diff) / Math.LN10), fastest = 0, stablest = 0;
-					forEach(this.stats, function(s, i){
-						if(i){
-							if(s.median < this.stats[fastest].median){
-								fastest = i;
-							}
-							if(s.upperQuartile - s.lowerQuartile < this.stats[i].upperQuartile - this.stats[i].lowerQuartile){
-								stablest = i;
-							}
-						}
-					}, this);
-					// show the results
-					var tab = ["<table class='stats'><thead><tr><th>Test</th>"];
-					tab.push(map(this.tests, function(test, i){
-						return "<th class='" + (i == fastest ? "fastest" : "") + " " + (i == stablest ? "stablest" : "") + "'>" + test.name + "</th>";
-					}).join(""));
-					tab.push("</tr></thead><tbody>");
-					forEach(statNames, function(name){
-						tab.push("<tr class='name " + name + "'><td>" + name + "</td>");
-						forEach(this.stats, function(s, i){
-							tab.push("<td class='" + (i == fastest ? "fastest" : "") + " " + (i == stablest ? "stablest" : "") + "'>" + s[name].toFixed(prec) + "</td>");
-						}, this);
-						tab.push("</tr>");
-					}, this);
-					tab.push("</tbody></table>");
-					place(tab.join(""), node);
-					// next
-					run();
+		
+		function process(rawData){
+			if(rawData){
+				var unit = units[stats.length];
+				// run teardown, if available
+				if(unit.teardown){
+					unit.teardown();
 				}
-			};
-		testGroups.push(function(){
-			//console.log("all tests will be repeated " + n + " times in " + repetitions + " series");
-			place("<h1>" + title + "</h1>", node);
-			x.process();
-		});
+				// save our data
+				var data = getStats(rawData, threshold);
+				this.onUnitEnd(groupName, unit, data);
+				stats.push(data);
+			}
+			if(stats.length < units.length){
+				var unit = units[stats.length];
+				this.onUnitStart(groupName, unit);
+				// run setup, if available
+				if(unit.setup){
+					unit.setup();
+				}
+				// run the test
+				runUnits(unit.test, threshold, repetitions, bind(process, this));
+				return;
+			}
+			// save results
+			this.statDict[groupName] = stats;
+			this.onGroupEnd(groupName, units, stats);
+			// prepare to show results
+			var diff = Math.max.apply(Math, map(stats, function(s){ return s.upperQuartile - s.lowerQuartile; })),
+				prec = 1 - Math.floor(Math.log(diff) / Math.LN10), fastest = 0, stablest = 0;
+			forEach(this.stats, function(s, i){
+				if(i){
+					if(s.median < stats[fastest].median){
+						fastest = i;
+					}
+					if(s.upperQuartile - s.lowerQuartile < stats[i].upperQuartile - stats[i].lowerQuartile){
+						stablest = i;
+					}
+				}
+			}, this);
+			// show the results
+			var tab = ["<table class='stats'><thead><tr><th>Test</th>"];
+			tab.push(map(units, function(unit, i){
+				return "<th class='" + (i == fastest ? "fastest" : "") + " " + (i == stablest ? "stablest" : "") + "'>" + unit.name + "</th>";
+			}).join(""));
+			tab.push("</tr></thead><tbody>");
+			forEach(statNames, function(name){
+				tab.push("<tr class='name " + name + "'><td>" + name + "</td>");
+				forEach(stats, function(s, i){
+					tab.push("<td class='" + (i == fastest ? "fastest" : "") + " " + (i == stablest ? "stablest" : "") + "'>" + s[name].toFixed(prec) + "</td>");
+				});
+				tab.push("</tr>");
+			});
+			tab.push("</tbody></table>");
+			place(tab.join(""), node);
+			// next group
+			run(repetitions, node);
+		}
+		
+		// start the group
+		place("<h1>" + groupName + "</h1>", node);
+		this.onGroupStart(groupName, units);
+		process.call(this);
 	};
-	
-	function run(){
-		if(testGroups.length){
-			testGroups.shift()();
-		}else{
-			//console.log("Done!");
+
+	function run(repetitions, node){
+		if(groupIndex < 0){
+			groupIndex = -1;
+		}
+		++groupIndex;
+		if(unitGroups.length <= groupIndex){
+			groupIndex = -1;
 			alert("Done!");
+		}else{
+			runGroup(unitGroups[groupIndex], repetitions, node);
 		}
 	}
 	
 	return {
-		registerGroup: registerGroup,
-		run: run
+		// data
+		unitGroups: [],
+		unitDict:   {},
+		statDict:   {},
+		groupIndex: -1,
+		// methods
+		clear:      clear,
+		register:   register,
+		run:        run,
+		// events
+		onGroupStart: nothing,
+		onGroupEnd:   nothing,
+		onUnitStart:  nothing,
+		onUnitEnd:    nothing
 	};
 }
