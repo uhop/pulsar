@@ -2,31 +2,31 @@
 <html>
 	<head>
 		<title>STE</title>
-		<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.4/dojo/dojo.xd.js"></script>
+		<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.5/dojo/dojo.xd.js"></script>
 		<script src="ste.js"></script>
 		<script>
 			var template = "\
 {?header}\
-	<h2>{header}<\/h2>\
+	<h2>{header}</h2>\
 {-}\
-	<h2>No header<\/h2>\
+	<h2>No header</h2>\
 {.}\
-<p><tt>DEBUG: {items|call:'toString'}<\/tt><\/p>\
-<p>We have {items.length} color{?items.length|eq:1|not}s{.}.<\/p>\
+<p><tt>DEBUG: {items|call:'toString'}</tt></p>\
+<p>We have {items.length} color{?items.length|eq:1|not}s{.}.</p>\
 {?items.length}\
 	<ul>\
 		{*items}\
 			{?%.item|eq:'white'}\
 				<li class='item {?%.index|even}even{-}odd{.}' value='{%.index|safeHtmlAttr|nodef}'>\
-					<span style='color: black; background: white;'>{%.item}<\/span>\
-				<\/li>\
+					<span style='color: black; background: white;'>{%.item}</span>\
+				</li>\
 			{-}\
 				<li class='item {?%.index|even}even{-}odd{.}' value='{%.index|safeHtmlAttr|nodef}'>\
-					<span style='color: white; background: {%.item|safeHtmlAttr|nodef};'>{%.item}<\/span>\
-				<\/li>\
+					<span style='color: white; background: {%.item|safeHtmlAttr|nodef};'>{%.item}</span>\
+				</li>\
 			{.}\
 		{.}\
-	<\/ul>\
+	</ul>\
 {.}\
 ";
 			var t = ste.compileTemplate(template);

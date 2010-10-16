@@ -16,7 +16,7 @@
 
 	ste.compileTemplate = function(tmpl, pattern, filters){
 		var tokens = [], previousOffset = 0, stack = [],
-			token, parent, index, backIndex, object, expr, parts, i, l;
+			token, parent, index, backIndex, object, i, l;
 		d.replace(tmpl, function(match, key, offset, tmpl){
 			var type = controls[key.charAt(0)] || "var";
 			if(offset > previousOffset){
@@ -82,7 +82,7 @@
 		object.pattern = pattern;
 		object.exec    = execTemplate;
 		return object;
-	}
+	};
 	
 	function compileValue(token){
 		var expr = token.text.split("|"), i, l;
@@ -174,7 +174,7 @@
 	function resolveValue(engine, dict, loopStack){
 		function resolve(token, useDefault){
 			var parts = token.parts, filters = token.filters, top = parts[0],
-				value = dict, i = 0, l = parts.length, base, old, filter;
+				value = dict, i = 0, l = parts.length, old, filter;
 			if(top.charAt(0) == "%"){
 				value = loopStack[loopStack.length - 1 - (top == "%" ? 0 : parseInt(top.substr(1)))];
 				i = 1;
@@ -204,7 +204,7 @@
 			}
 			engine._nodef = old;	// restore the old value of the flag
 			return value;	// Object
-		};
+		}
 		return resolve;	// Function
 	}
 	
@@ -229,7 +229,7 @@
 			return (value + "").replace(/&(?!\w+([;\s]|$))/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 		},
 		safeHtmlAttr: function(value){
-			return (value + "").replace(/&(?!\w+([;\s]|$))/g, "&amp;").replace(/\"/g, "&quot;").replace(/\'/g, "&apos;");
+			return (value + "").replace(/&(?!\w+([;\s]|$))/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 		},
 		safeUri: function(value){
 			return encodeURI(value);
@@ -257,7 +257,7 @@
 		str: function(value){
 			return value + "";
 		},
-		void: function(){
+		"void": function(){
 			return "";
 		},
 

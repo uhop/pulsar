@@ -84,7 +84,7 @@
 		object.pattern = pattern;
 		object.exec    = execTemplate;
 		return object;
-	}
+	};
 	
 	function execTemplate(dict){
 		var result = [], stack = [], loopStack = [], token, value, len, top,
@@ -162,7 +162,7 @@
 	function resolveValue(engine, dict, loopStack){
 		function resolve(match, expr){
 			var exprParts = expr.split("|"), parts = exprParts[0].split("."),
-				top = parts[0], value = dict, i = 0, l = parts.length, base, old, filter;
+				top = parts[0], value = dict, i = 0, l = parts.length, old, filter;
 			if(top.charAt(0) == "%"){
 				value = loopStack[loopStack.length - 1 - (top == "%" ? 0 : parseInt(top.substr(1)))];
 				i = 1;
@@ -190,7 +190,7 @@
 			}
 			engine._nodef = old;	// restore the old value of the flag
 			return match ? value + "" : value;	// Object
-		};
+		}
 		return resolve;	// Function
 	}
 	
@@ -213,7 +213,7 @@
 			return (value + "").replace(/&(?!\w+([;\s]|$))/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 		},
 		safeHtmlAttr: function(value){
-			return (value + "").replace(/&(?!\w+([;\s]|$))/g, "&amp;").replace(/\"/g, "&quot;").replace(/\'/g, "&apos;");
+			return (value + "").replace(/&(?!\w+([;\s]|$))/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 		},
 		safeUri: function(value){
 			return encodeURI(value);
@@ -241,7 +241,7 @@
 		str: function(value){
 			return value + "";
 		},
-		void: function(){
+		"void": function(){
 			return "";
 		},
 
