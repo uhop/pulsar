@@ -1,1 +1,15 @@
 Yet unexplained project.
+
+Base candidates
+---------------
+
+DojoX: dojox.lang, 
+
+plugd: connectlive.js, debugging.js, escape.js, keys.js, NodeList-data.js, plugin.js, script.js, trigger.js
+
+Honorable mentions: dojo-on by Ben Lowery http://github.com/blowery/dojo-on
+
+Core candidates
+---------------
+
+plugd
