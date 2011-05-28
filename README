@@ -11,6 +11,8 @@ plugd: connectlive.js, debugging.js, escape.js, keys.js, NodeList-data.js, plugi
 
 Honorable mentions: dojo-on by Ben Lowery http://github.com/blowery/dojo-on
 
+In the queue: uber.js
+
 Core candidates
 ---------------
 
